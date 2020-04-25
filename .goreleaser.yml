@@ -10,7 +10,7 @@ builds:
     goos:
       - windows
       - linux
-      - darwin
+      # - darwin
     goarch:
       - amd64
     flags:
@@ -19,6 +19,7 @@ builds:
       - -s -w
       - -X main.GitCommit={{.ShortCommit}}
       - -X main.ReleaseVer={{.Version}}
+      - -X main.ReleaseDate={{.Date}}
 
 archives:
   - name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'

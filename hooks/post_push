@@ -1,0 +1,8 @@
+#!/bin/bash -e
+
+echo "Post-Push hook running"
+
+DATETAG="$(date -u +'%Y-%m-%d')--$(git rev-parse --short HEAD)"
+
+docker tag "$IMAGE_NAME" "${DOCKER_REPO}:${DATETAG}"
+docker push "${DOCKER_REPO}:${DATETAG}"
