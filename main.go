@@ -53,7 +53,7 @@ func main() {
 	input := &ec2.DescribeTagsInput{
 		Filters: []*ec2.Filter{
 			&ec2.Filter{
-				Name: aws.String("instance"),
+				Name: aws.String("resource-id"),
 				Values: []*string{
 					aws.String(instanceID),
 				},
