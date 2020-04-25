@@ -7,8 +7,26 @@ This utility reports success or failure of new instance deployment to CloudForma
 
 This utility derives this information from the instances tags.  The idea here is you give your EC2 an Instance Role capable of reading the EC2 Tags and deriving the ResourceID and Cloudformation Stack from these, rather than having to pass them via UserData.
 
-The two tags require are:
+**The two tags require are:**
 * `aws:cloudformation:logical-id`
 * `aws:cloudformation:stack-name`
 
 Both of these tags are automatically applied to the ASG and EC2 instance upon creation via CloudFormation.
+
+The EC2 must also be able to read its own tags, as well as use the CloudFormation SignalResource API.
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Sid": "BetterCfnSignal",
+      "Action": [
+      	"cloudformation:SignalResource",
+        "ec2:DescribeTags"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
