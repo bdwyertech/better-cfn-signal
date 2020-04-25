@@ -16,6 +16,7 @@ import (
 )
 
 var verFlag = flag.Bool("version", false, "Display version")
+var failFlag = flag.Bool("failure", false, "Signal resource failure")
 
 var GitCommit string
 var ReleaseVer string
@@ -104,8 +105,13 @@ func main() {
 	signal := &cloudformation.SignalResourceInput{
 		LogicalResourceId: LogicalID,
 		StackName:         StackName,
-		Status:            aws.String("success"),
-		UniqueId:          aws.String(instanceID),
+		Status: func() *string {
+			if *failFlag {
+				return aws.String("FAILURE")
+			}
+			return aws.String("SUCCESS")
+		}(),
+		UniqueId: aws.String(instanceID),
 	}
 
 	cfr, err := cfclient.SignalResource(signal)
