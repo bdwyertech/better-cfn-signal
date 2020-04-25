@@ -46,6 +46,7 @@ func main() {
 		log.Fatal(err)
 	}
 	instanceID := identity.InstanceID
+	sess.Config = sess.Config.WithRegion(identity.Region)
 
 	ec2client := ec2.New(sess)
 
