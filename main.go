@@ -5,8 +5,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
@@ -21,6 +22,13 @@ var failFlag = flag.Bool("failure", false, "Signal resource failure")
 var GitCommit string
 var ReleaseVer string
 var ReleaseDate string
+
+func init() {
+	if _, ok := os.LookupEnv("CFN_SIGNAL_DEBUG"); ok {
+		log.SetLevel(log.DebugLevel)
+		log.SetReportCaller(true)
+	}
+}
 
 func main() {
 	flag.Parse()
