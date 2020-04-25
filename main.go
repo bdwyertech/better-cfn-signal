@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
@@ -23,6 +24,11 @@ var ReleaseDate string
 func main() {
 	flag.Parse()
 
+	if *verFlag {
+		showVersion()
+		os.Exit(0)
+	}
+
 	// AWS Session
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		Config:            *aws.NewConfig().WithCredentialsChainVerboseErrors(true),
@@ -35,19 +41,11 @@ func main() {
 		log.Fatal("EC2 Metadata is not available... Are we running on an EC2 instance?")
 	}
 
-	region, err := metadata.Region()
-	if err != nil {
-		log.Fatal(fmt.Errorf("Unable to detect AWS Region: %w", err))
-	}
-
 	identity, err := metadata.GetInstanceIdentityDocument()
 	if err != nil {
 		log.Fatal(err)
 	}
 	instanceID := identity.InstanceID
-
-	log.Println(region)
-	log.Println(instanceID)
 
 	ec2client := ec2.New(sess)
 
@@ -86,7 +84,6 @@ func main() {
 	}
 
 	var LogicalID, StackName *string
-	// var StackName *string
 
 	for _, tag := range tags {
 		switch *tag.Key {
@@ -115,4 +112,16 @@ func main() {
 		log.Fatal(err)
 	}
 	log.Println(cfr)
+}
+
+func showVersion() {
+	if GitCommit == "" {
+		GitCommit = "DEVELOPMENT"
+	}
+	if ReleaseVer == "" {
+		ReleaseVer = "DEVELOPMENT"
+	}
+	fmt.Println("version:", ReleaseVer)
+	fmt.Println("date:", ReleaseDate)
+	fmt.Println("commit:", GitCommit)
 }
