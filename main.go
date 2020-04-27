@@ -97,14 +97,14 @@ func main() {
 
 	for _, tag := range tags {
 		switch *tag.Key {
-		case "aws:cloudformation:stack-name":
-			StackName = tag.Value
 		case "aws:cloudformation:logical-id":
 			LogicalID = tag.Value
+		case "aws:cloudformation:stack-name":
+			StackName = tag.Value
 		}
 	}
 
-	if *LogicalID == "" || *StackName == "" {
+	if LogicalID == nil || StackName == nil {
 		log.Fatal("Required tags were not present on EC2 Instance!")
 	}
 
