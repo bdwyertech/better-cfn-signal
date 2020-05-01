@@ -7,12 +7,12 @@ This utility [reports success or failure of a new instance deployment to CloudFo
 
 This utility derives this information from the instance's tags.  The idea here is you give your EC2 an Instance Role capable of reading its own tags, we read them and determine the ResourceID and Cloudformation Stack, rather than having to pass this information via UserData.
 
-**The two tags require are:**
+#### Required Tags
+Both of these tags are automatically applied to the EC2 instance upon creation via CloudFormation.
 * `aws:cloudformation:logical-id`
 * `aws:cloudformation:stack-name`
 
-Both of these tags are automatically applied to the EC2 instance upon creation via CloudFormation.
-
+#### Required IAM Permissions
 The EC2 must also be able to read its own tags, as well as use the CloudFormation SignalResource API.
 ```json
 {
