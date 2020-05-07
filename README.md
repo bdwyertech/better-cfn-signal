@@ -54,3 +54,18 @@ Write-Host 'Do some stuff...'
 better-cfn-signal
 </powershell>
 ```
+
+
+### Healthcheck Support
+Optionally, Better CFN Signal can wait for a URL to return a 200 prior to sending a healthy response back to CloudFormation.
+
+This was intended for use with the [Go-Healthz healthcheck daemon.](https://github.com/bdwyertech/go-healthz)
+
+```bash
+#!/bin/bash -e
+
+echo 'Do some stuff...'
+
+# Signal Success after waiting up to 10 minutes for the Healthcheck URL to return 200
+better-cfn-signal -healthcheck-url http://127.0.0.1:8080 -healthcheck-timeout 10m
+```
