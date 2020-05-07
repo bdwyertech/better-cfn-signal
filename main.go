@@ -1,11 +1,21 @@
 // Encoding: UTF-8
+//
+// Better CFN Signal
+//
+// Copyright © 2020 Brian Dwyer - Intelligent Digital Services
+//
 
 package main
 
 import (
+	"context"
+	"crypto/tls"
 	"flag"
 	"fmt"
+	"net"
+	"net/http"
 	"os"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -16,14 +26,15 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
-var verFlag = flag.Bool("version", false, "Display version")
-var failFlag = flag.Bool("failure", false, "Signal resource failure")
-
-var GitCommit string
-var ReleaseVer string
-var ReleaseDate string
+var healthcheckUrl string
+var healthcheckTimeout time.Duration
+var signalFailure bool
 
 func init() {
+	flag.StringVar(&healthcheckUrl, "healthcheck-url", "", "Healthcheck endpoint URL")
+	flag.DurationVar(&healthcheckTimeout, "healthcheck-timeout", 5*time.Minute, "Healthcheck timeout")
+	flag.BoolVar(&signalFailure, "failure", false, "Signal resource failure")
+
 	if _, ok := os.LookupEnv("CFN_SIGNAL_DEBUG"); ok {
 		log.SetLevel(log.DebugLevel)
 		log.SetReportCaller(true)
@@ -33,7 +44,7 @@ func init() {
 func main() {
 	flag.Parse()
 
-	if *verFlag {
+	if versionFlag {
 		showVersion()
 		os.Exit(0)
 	}
@@ -114,12 +125,17 @@ func main() {
 		LogicalResourceId: LogicalID,
 		StackName:         StackName,
 		Status: func() *string {
-			if *failFlag {
+			if signalFailure {
 				return aws.String("FAILURE")
 			}
 			return aws.String("SUCCESS")
 		}(),
 		UniqueId: aws.String(instanceID),
+	}
+
+	// Wait for Healthcheck if configured
+	if !signalFailure && healthcheckUrl != "" {
+		waitUntilHealthy()
 	}
 
 	cfr, err := cfclient.SignalResource(signal)
@@ -129,14 +145,62 @@ func main() {
 	log.Println(cfr)
 }
 
-func showVersion() {
-	if GitCommit == "" {
-		GitCommit = "DEVELOPMENT"
+func waitUntilHealthy() {
+
+	// Copy of http.DefaultTransport with Flippable TLS Verification
+	// https://golang.org/pkg/net/http/#Client
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: func() bool {
+				_, ok := os.LookupEnv("CFN_SIGNAL_SSL_VERIFY")
+				return ok
+			}()},
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+				DualStack: true,
+			}).DialContext,
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		},
 	}
-	if ReleaseVer == "" {
-		ReleaseVer = "DEVELOPMENT"
+
+	ctx, cancel := context.WithTimeout(context.Background(), healthcheckTimeout)
+	defer cancel()
+
+	for {
+		req, err := http.NewRequestWithContext(ctx, "GET", healthcheckUrl, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+		requestTimeout := 30 * time.Second
+		rctx, rcancel := context.WithTimeout(ctx, requestTimeout)
+		defer rcancel()
+		resp, err := client.Do(req.WithContext(rctx))
+		if err != nil {
+			if ctxErr := ctx.Err(); ctxErr == context.DeadlineExceeded {
+				log.Fatal(fmt.Errorf("healthcheck exceeded timeout(%s): %w", healthcheckTimeout, err))
+			}
+			if ctxErr := rctx.Err(); ctxErr == context.DeadlineExceeded {
+				log.Warn(fmt.Errorf("healthcheck request timeout(%s): %w", requestTimeout, err))
+			} else {
+				log.Error(err)
+			}
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		defer resp.Body.Close()
+		switch resp.StatusCode {
+		case 200:
+			return
+		default:
+			log.Warnf("%v :: (%v) %v", healthcheckUrl, resp.StatusCode, resp.Status)
+			time.Sleep(5 * time.Second)
+			continue
+		}
 	}
-	fmt.Println("version:", ReleaseVer)
-	fmt.Println("date:", ReleaseDate)
-	fmt.Println("commit:", GitCommit)
 }
