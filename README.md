@@ -59,7 +59,7 @@ better-cfn-signal
 ### Healthcheck Support
 Optionally, Better CFN Signal can wait for a URL to return a 200 prior to sending a healthy response back to CloudFormation.
 
-This was intended for use with the [Go-Healthz healthcheck daemon.](https://github.com/bdwyertech/go-healthz)
+This was intended for use with the [Go-Healthz healthcheck daemon.](https://github.com/bdwyertech/go-healthz)  The concept is similar to [Kubernetes Startup Probes.](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-startup-probes)
 
 ```bash
 #!/bin/bash -e
