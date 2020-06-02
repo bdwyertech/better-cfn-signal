@@ -20,9 +20,8 @@ The EC2 must also be able to read its own tags, as well as use the CloudFormatio
   "Statement": [
     {
       "Effect": "Allow",
-      "Sid": "BetterCfnSignal",
       "Action": [
-      	"cloudformation:SignalResource",
+        "cloudformation:SignalResource",
         "ec2:DescribeTags"
       ],
       "Resource": "*"
