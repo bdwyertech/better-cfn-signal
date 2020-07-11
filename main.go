@@ -15,11 +15,13 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudformation"
@@ -139,10 +141,23 @@ func main() {
 	}
 
 	cfr, err := cfclient.SignalResource(signal)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println(cfr)
+	// Error Handling
+	// We don't want to have a non-zero exit code cause cloud-init unit failure during autoscaling operations
+	func() {
+		if err != nil {
+			if awsErr, ok := err.(awserr.Error); ok {
+				if awsErr.Code() == "ValidationError" {
+					if strings.HasSuffix(awsErr.Message(), "is in CREATE_COMPLETE state and cannot be signaled") {
+						log.Warn(awsErr)
+						return
+					}
+				}
+			}
+			log.Fatal(err)
+		}
+	}()
+
+	log.Println("SignalResource Response:", cfr)
 }
 
 func waitUntilHealthy() {
