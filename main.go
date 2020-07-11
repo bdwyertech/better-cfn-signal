@@ -24,6 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/cloudformation"
 	"github.com/aws/aws-sdk-go/service/ec2"
 )
@@ -31,11 +32,13 @@ import (
 var healthcheckUrl string
 var healthcheckTimeout time.Duration
 var signalFailure bool
+var setHealthy bool
 
 func init() {
 	flag.StringVar(&healthcheckUrl, "healthcheck-url", "", "Healthcheck endpoint URL")
 	flag.DurationVar(&healthcheckTimeout, "healthcheck-timeout", 5*time.Minute, "Healthcheck timeout")
 	flag.BoolVar(&signalFailure, "failure", false, "Signal resource failure")
+	flag.BoolVar(&signalFailure, "set-healthy", false, "Set instance to healthy in its ASG")
 
 	if _, ok := os.LookupEnv("CFN_SIGNAL_DEBUG"); ok {
 		log.SetLevel(log.DebugLevel)
@@ -44,6 +47,21 @@ func init() {
 }
 
 func main() {
+
+	signal2 := &cloudformation.SignalResourceInput{
+		LogicalResourceId: LogicalID,
+		StackName:         StackName,
+		Status: func() *string {
+			if signalFailure {
+				return aws.String("FAILURE")
+			}
+			return aws.String("SUCCESS")
+		}(),
+		UniqueId: aws.String(instanceID),
+	}
+
+	log.Fatal(signal2.Status)
+
 	flag.Parse()
 
 	if versionFlag {
@@ -138,6 +156,18 @@ func main() {
 	// Wait for Healthcheck if configured
 	if !signalFailure && healthcheckUrl != "" {
 		waitUntilHealthy()
+	}
+
+	if setHealthy {
+		resp, err := autoscaling.New(sess).SetInstanceHealth(&autoscaling.SetInstanceHealthInput{
+			HealthStatus:             aws.String("Healthy"),
+			InstanceId:               aws.String(instanceID),
+			ShouldRespectGracePeriod: aws.Bool(true),
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Println(resp)
 	}
 
 	cfr, err := cfclient.SignalResource(signal)
