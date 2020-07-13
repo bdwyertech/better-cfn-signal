@@ -143,8 +143,8 @@ func main() {
 	cfr, err := cfclient.SignalResource(signal)
 	// Error Handling
 	// We don't want to have a non-zero exit code cause cloud-init unit failure during autoscaling operations
-	func() {
-		if err != nil {
+	if err != nil {
+		func() {
 			if awsErr, ok := err.(awserr.Error); ok {
 				if awsErr.Code() == "ValidationError" {
 					if strings.HasSuffix(awsErr.Message(), "is in CREATE_COMPLETE state and cannot be signaled") {
@@ -154,8 +154,8 @@ func main() {
 				}
 			}
 			log.Fatal(err)
-		}
-	}()
+		}()
+	}
 
 	log.Println("SignalResource Response:", cfr)
 }
