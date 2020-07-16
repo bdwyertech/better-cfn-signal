@@ -24,6 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/cloudformation"
 	"github.com/aws/aws-sdk-go/service/ec2"
 )
@@ -121,6 +122,20 @@ func main() {
 		log.Fatal("Required tags were not present on EC2 Instance!")
 	}
 
+	if signalFailure {
+		// Also attempt to mark the instance as unhealthy in its respective ASG
+		_, err := autoscaling.New(sess).SetInstanceHealth(&autoscaling.SetInstanceHealthInput{
+			// Healthy/Unhealthy
+			HealthStatus:             aws.String("Unhealthy"),
+			InstanceId:               aws.String(instanceID),
+			ShouldRespectGracePeriod: aws.Bool(false),
+		})
+		if err != nil {
+			// Gracefully continue -- Might not have permissions, etc.
+			log.Warn(err)
+		}
+	}
+
 	cfclient := cloudformation.New(sess)
 
 	signal := &cloudformation.SignalResourceInput{
@@ -140,7 +155,7 @@ func main() {
 		waitUntilHealthy()
 	}
 
-	cfr, err := cfclient.SignalResource(signal)
+	_, err = cfclient.SignalResource(signal)
 	// Error Handling
 	// We don't want to have a non-zero exit code cause cloud-init unit failure during autoscaling operations
 	if err != nil {
@@ -156,8 +171,6 @@ func main() {
 			log.Fatal(err)
 		}()
 	}
-
-	log.Println("SignalResource Response:", cfr)
 }
 
 func waitUntilHealthy() {
