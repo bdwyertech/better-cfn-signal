@@ -147,7 +147,10 @@ func main() {
 		func() {
 			if awsErr, ok := err.(awserr.Error); ok {
 				if awsErr.Code() == "ValidationError" {
-					if strings.HasSuffix(awsErr.Message(), "is in CREATE_COMPLETE state and cannot be signaled") {
+					// is in CREATE_COMPLETE state and cannot be signaled
+					// Potential status codes: CREATE_COMPLETE, UPDATE_COMPLETE, UPDATE_ROLLBACK_COMPLETE, etc.
+					// https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-describing-stacks.html
+					if strings.HasSuffix(awsErr.Message(), "state and cannot be signaled") {
 						log.Warn(awsErr)
 						return
 					}
