@@ -1,10 +1,10 @@
-FROM golang:1.14-alpine as better-cfn-signal
+FROM golang:1.16-alpine as better-cfn-signal
 WORKDIR /go/src/github.com/bdwyertech/better-cfn-signal
 COPY . .
 ARG VCS_REF
 RUN CGO_ENABLED=0 GOFLAGS='-mod=vendor' go build -ldflags="-X main.GitCommit=$VCS_REF -X main.ReleaseVer=docker -X main.ReleaseDate=$BUILD_DATE" .
 
-FROM library/alpine:3.11
+FROM library/alpine:3.12
 COPY --from=better-cfn-signal /go/src/github.com/bdwyertech/better-cfn-signal/better-cfn-signal /usr/local/bin/
 
 ARG BUILD_DATE

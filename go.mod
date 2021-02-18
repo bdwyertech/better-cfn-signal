@@ -1,8 +1,8 @@
 module better-cfn-signal
 
-go 1.15
+go 1.16
 
 require (
-	github.com/aws/aws-sdk-go v1.34.21
-	github.com/sirupsen/logrus v1.6.0
+	github.com/aws/aws-sdk-go v1.37.14
+	github.com/sirupsen/logrus v1.8.0
 )
