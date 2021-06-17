@@ -7070,6 +7070,11 @@ func (s *CreateStackInstancesInput) Validate() error {
 	if s.StackSetName == nil {
 		invalidParams.Add(request.NewErrParamRequired("StackSetName"))
 	}
+	if s.DeploymentTargets != nil {
+		if err := s.DeploymentTargets.Validate(); err != nil {
+			invalidParams.AddNested("DeploymentTargets", err.(request.ErrInvalidParams))
+		}
+	}
 	if s.OperationPreferences != nil {
 		if err := s.OperationPreferences.Validate(); err != nil {
 			invalidParams.AddNested("OperationPreferences", err.(request.ErrInvalidParams))
@@ -7241,18 +7246,19 @@ type CreateStackSetInput struct {
 	//    For more information, see Acknowledging IAM Resources in AWS CloudFormation
 	//    Templates (http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#capabilities).
 	//
-	//    * CAPABILITY_AUTO_EXPAND Some templates contain macros. If your stack
-	//    template contains one or more macros, and you choose to create a stack
-	//    directly from the processed template, without first reviewing the resulting
-	//    changes in a change set, you must acknowledge this capability. For more
-	//    information, see Using AWS CloudFormation Macros to Perform Custom Processing
-	//    on Templates (http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/template-macros.html).
-	//    Stack sets do not currently support macros in stack templates. (This includes
-	//    the AWS::Include (http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/create-reusable-transform-function-snippets-and-add-to-your-template-with-aws-include-transform.html)
+	//    * CAPABILITY_AUTO_EXPAND Some templates reference macros. If your stack
+	//    set template references one or more macros, you must create the stack
+	//    set directly from the processed template, without first reviewing the
+	//    resulting changes in a change set. To create the stack set directly, you
+	//    must acknowledge this capability. For more information, see Using AWS
+	//    CloudFormation Macros to Perform Custom Processing on Templates (http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/template-macros.html).
+	//    Stack sets with service-managed permissions do not currently support the
+	//    use of macros in templates. (This includes the AWS::Include (http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/create-reusable-transform-function-snippets-and-add-to-your-template-with-aws-include-transform.html)
 	//    and AWS::Serverless (http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/transform-aws-serverless.html)
 	//    transforms, which are macros hosted by AWS CloudFormation.) Even if you
-	//    specify this capability, if you include a macro in your template the stack
-	//    set operation will fail.
+	//    specify this capability for a stack set with service-managed permissions,
+	//    if you reference a macro in your template the stack set operation will
+	//    fail.
 	Capabilities []*string `type:"list"`
 
 	// A unique identifier for this CreateStackSet request. Specify this token if
@@ -7745,6 +7751,11 @@ func (s *DeleteStackInstancesInput) Validate() error {
 	if s.StackSetName == nil {
 		invalidParams.Add(request.NewErrParamRequired("StackSetName"))
 	}
+	if s.DeploymentTargets != nil {
+		if err := s.DeploymentTargets.Validate(); err != nil {
+			invalidParams.AddNested("DeploymentTargets", err.(request.ErrInvalidParams))
+		}
+	}
 	if s.OperationPreferences != nil {
 		if err := s.OperationPreferences.Validate(); err != nil {
 			invalidParams.AddNested("OperationPreferences", err.(request.ErrInvalidParams))
@@ -7931,6 +7942,9 @@ type DeploymentTargets struct {
 	// set updates.
 	Accounts []*string `type:"list"`
 
+	// Returns the value of the AccountsUrl property.
+	AccountsUrl *string `min:"1" type:"string"`
+
 	// The organization root ID or organizational unit (OU) IDs to which StackSets
 	// deploys.
 	OrganizationalUnitIds []*string `type:"list"`
@@ -7946,9 +7960,28 @@ func (s DeploymentTargets) GoString() string {
 	return s.String()
 }
 
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DeploymentTargets) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "DeploymentTargets"}
+	if s.AccountsUrl != nil && len(*s.AccountsUrl) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("AccountsUrl", 1))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
 // SetAccounts sets the Accounts field's value.
 func (s *DeploymentTargets) SetAccounts(v []*string) *DeploymentTargets {
 	s.Accounts = v
+	return s
+}
+
+// SetAccountsUrl sets the AccountsUrl field's value.
+func (s *DeploymentTargets) SetAccountsUrl(v string) *DeploymentTargets {
+	s.AccountsUrl = &v
 	return s
 }
 
@@ -10407,6 +10440,22 @@ func (s *GetTemplateOutput) SetTemplateBody(v string) *GetTemplateOutput {
 type GetTemplateSummaryInput struct {
 	_ struct{} `type:"structure"`
 
+	// [Service-managed permissions] Specifies whether you are acting as an account
+	// administrator in the organization's management account or as a delegated
+	// administrator in a member account.
+	//
+	// By default, SELF is specified. Use SELF for stack sets with self-managed
+	// permissions.
+	//
+	//    * If you are signed in to the management account, specify SELF.
+	//
+	//    * If you are signed in to a delegated administrator account, specify DELEGATED_ADMIN.
+	//    Your AWS account must be registered as a delegated administrator in the
+	//    management account. For more information, see Register a delegated administrator
+	//    (https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-delegated-admin.html)
+	//    in the AWS CloudFormation User Guide.
+	CallAs *string `type:"string" enum:"CallAs"`
+
 	// The name or the stack ID that is associated with the stack, which are not
 	// always interchangeable. For running stacks, you can specify either the stack's
 	// name or its unique stack ID. For deleted stack, you must specify the unique
@@ -10469,6 +10518,12 @@ func (s *GetTemplateSummaryInput) Validate() error {
 		return invalidParams
 	}
 	return nil
+}
+
+// SetCallAs sets the CallAs field's value.
+func (s *GetTemplateSummaryInput) SetCallAs(v string) *GetTemplateSummaryInput {
+	s.CallAs = &v
+	return s
 }
 
 // SetStackName sets the StackName field's value.
@@ -15644,6 +15699,10 @@ type StackSetOperationPreferences struct {
 	// but not both.
 	MaxConcurrentPercentage *int64 `min:"1" type:"integer"`
 
+	// The concurrency type of deploying StackSets operations in regions, could
+	// be in parallel or one region at a time.
+	RegionConcurrencyType *string `type:"string" enum:"RegionConcurrencyType"`
+
 	// The order of the Regions in where you want to perform the stack operation.
 	RegionOrder []*string `type:"list"`
 }
@@ -15695,6 +15754,12 @@ func (s *StackSetOperationPreferences) SetMaxConcurrentCount(v int64) *StackSetO
 // SetMaxConcurrentPercentage sets the MaxConcurrentPercentage field's value.
 func (s *StackSetOperationPreferences) SetMaxConcurrentPercentage(v int64) *StackSetOperationPreferences {
 	s.MaxConcurrentPercentage = &v
+	return s
+}
+
+// SetRegionConcurrencyType sets the RegionConcurrencyType field's value.
+func (s *StackSetOperationPreferences) SetRegionConcurrencyType(v string) *StackSetOperationPreferences {
+	s.RegionConcurrencyType = &v
 	return s
 }
 
@@ -16955,6 +17020,11 @@ func (s *UpdateStackInstancesInput) Validate() error {
 	if s.StackSetName == nil {
 		invalidParams.Add(request.NewErrParamRequired("StackSetName"))
 	}
+	if s.DeploymentTargets != nil {
+		if err := s.DeploymentTargets.Validate(); err != nil {
+			invalidParams.AddNested("DeploymentTargets", err.(request.ErrInvalidParams))
+		}
+	}
 	if s.OperationPreferences != nil {
 		if err := s.OperationPreferences.Validate(); err != nil {
 			invalidParams.AddNested("OperationPreferences", err.(request.ErrInvalidParams))
@@ -17144,18 +17214,19 @@ type UpdateStackSetInput struct {
 	//    For more information, see Acknowledging IAM Resources in AWS CloudFormation
 	//    Templates (http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#capabilities).
 	//
-	//    * CAPABILITY_AUTO_EXPAND Some templates contain macros. If your stack
-	//    template contains one or more macros, and you choose to update a stack
-	//    directly from the processed template, without first reviewing the resulting
-	//    changes in a change set, you must acknowledge this capability. For more
-	//    information, see Using AWS CloudFormation Macros to Perform Custom Processing
-	//    on Templates (http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/template-macros.html).
-	//    Stack sets do not currently support macros in stack templates. (This includes
-	//    the AWS::Include (http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/create-reusable-transform-function-snippets-and-add-to-your-template-with-aws-include-transform.html)
+	//    * CAPABILITY_AUTO_EXPAND Some templates reference macros. If your stack
+	//    set template references one or more macros, you must update the stack
+	//    set directly from the processed template, without first reviewing the
+	//    resulting changes in a change set. To update the stack set directly, you
+	//    must acknowledge this capability. For more information, see Using AWS
+	//    CloudFormation Macros to Perform Custom Processing on Templates (http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/template-macros.html).
+	//    Stack sets with service-managed permissions do not currently support the
+	//    use of macros in templates. (This includes the AWS::Include (http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/create-reusable-transform-function-snippets-and-add-to-your-template-with-aws-include-transform.html)
 	//    and AWS::Serverless (http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/transform-aws-serverless.html)
 	//    transforms, which are macros hosted by AWS CloudFormation.) Even if you
-	//    specify this capability, if you include a macro in your template the stack
-	//    set operation will fail.
+	//    specify this capability for a stack set with service-managed permissions,
+	//    if you reference a macro in your template the stack set operation will
+	//    fail.
 	Capabilities []*string `type:"list"`
 
 	// [Service-managed permissions] The AWS Organizations accounts in which to
@@ -17333,6 +17404,11 @@ func (s *UpdateStackSetInput) Validate() error {
 	}
 	if s.TemplateURL != nil && len(*s.TemplateURL) < 1 {
 		invalidParams.Add(request.NewErrParamMinLen("TemplateURL", 1))
+	}
+	if s.DeploymentTargets != nil {
+		if err := s.DeploymentTargets.Validate(); err != nil {
+			invalidParams.AddNested("DeploymentTargets", err.(request.ErrInvalidParams))
+		}
 	}
 	if s.OperationPreferences != nil {
 		if err := s.OperationPreferences.Validate(); err != nil {
@@ -18104,6 +18180,22 @@ func ProvisioningType_Values() []string {
 		ProvisioningTypeNonProvisionable,
 		ProvisioningTypeImmutable,
 		ProvisioningTypeFullyMutable,
+	}
+}
+
+const (
+	// RegionConcurrencyTypeSequential is a RegionConcurrencyType enum value
+	RegionConcurrencyTypeSequential = "SEQUENTIAL"
+
+	// RegionConcurrencyTypeParallel is a RegionConcurrencyType enum value
+	RegionConcurrencyTypeParallel = "PARALLEL"
+)
+
+// RegionConcurrencyType_Values returns all elements of the RegionConcurrencyType enum
+func RegionConcurrencyType_Values() []string {
+	return []string{
+		RegionConcurrencyTypeSequential,
+		RegionConcurrencyTypeParallel,
 	}
 }
 
