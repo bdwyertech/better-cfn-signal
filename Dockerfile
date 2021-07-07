@@ -4,7 +4,7 @@ COPY . .
 ARG VCS_REF
 RUN CGO_ENABLED=0 GOFLAGS='-mod=vendor' go build -ldflags="-s -w -X main.GitCommit=$VCS_REF -X main.ReleaseVer=docker -X main.ReleaseDate=$BUILD_DATE" .
 
-FROM library/alpine:3.13
+FROM library/alpine:3.14
 COPY --from=better-cfn-signal /go/src/github.com/bdwyertech/better-cfn-signal/better-cfn-signal /usr/local/bin/
 
 ARG BUILD_DATE
@@ -21,7 +21,7 @@ LABEL org.opencontainers.image.title="bdwyertech/better-cfn-signal" \
       org.label-schema.name="bdwyertech/better-cfn-signal" \
       org.label-schema.description="For simplified use of CloudFormation SignalResource" \
       org.label-schema.url="https://hub.docker.com/r/bdwyertech/better-cfn-signal" \
-      org.label-schema.vcs-url="https://github.com/bdwyertech/better-cfn-signal.git"\
+      org.label-schema.vcs-url="https://github.com/bdwyertech/better-cfn-signal.git" \
       org.label-schema.vcs-ref=$VCS_REF \
       org.label-schema.build-date=$BUILD_DATE
 
