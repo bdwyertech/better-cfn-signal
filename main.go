@@ -8,10 +8,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -190,6 +193,8 @@ func waitUntilHealthy() {
 	ctx, cancel := context.WithTimeout(context.Background(), healthcheckTimeout)
 	defer cancel()
 
+	var bodyBytes []byte
+
 	for {
 		req, err := http.NewRequestWithContext(ctx, "GET", healthcheckUrl, nil)
 		if err != nil {
@@ -201,6 +206,14 @@ func waitUntilHealthy() {
 		resp, err := client.Do(req.WithContext(rctx))
 		if err != nil {
 			if ctxErr := ctx.Err(); ctxErr == context.DeadlineExceeded {
+				if len(bodyBytes) > 0 {
+					var prettyJSON bytes.Buffer
+					if err := json.Indent(&prettyJSON, bodyBytes, "", "  "); err != nil {
+						log.Error(string(bodyBytes))
+					} else {
+						log.Error(prettyJSON.String())
+					}
+				}
 				log.Fatal(fmt.Errorf("healthcheck exceeded timeout(%s): %w", healthcheckTimeout, err))
 			}
 			if ctxErr := rctx.Err(); ctxErr == context.DeadlineExceeded {
@@ -217,6 +230,8 @@ func waitUntilHealthy() {
 			return
 		default:
 			log.Warnf("%v :: (%v) %v", healthcheckUrl, resp.StatusCode, resp.Status)
+			bodyBytes, _ = io.ReadAll(resp.Body)
+			resp.Body.Close()
 			time.Sleep(5 * time.Second)
 			continue
 		}
