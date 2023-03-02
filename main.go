@@ -2,7 +2,7 @@
 //
 // Better CFN Signal
 //
-// Copyright © 2022 Brian Dwyer - Intelligent Digital Services
+// Copyright © 2023 Brian Dwyer - Intelligent Digital Services
 //
 
 package main
@@ -18,6 +18,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudformation"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/mattn/go-isatty"
 )
 
 var healthcheckUrl string
@@ -43,6 +45,12 @@ func init() {
 	if _, ok := os.LookupEnv("CFN_SIGNAL_DEBUG"); ok {
 		log.SetLevel(log.DebugLevel)
 		log.SetReportCaller(true)
+	}
+
+	// Workaround for https://github.com/PowerShell/PowerShell/issues/14273
+	// PSNotApplyErrorActionToStderr
+	if runtime.GOOS == "windows" && !(isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd())) {
+		log.SetOutput(os.Stdout)
 	}
 }
 
