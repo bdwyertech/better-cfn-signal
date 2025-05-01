@@ -3,7 +3,7 @@ module better-cfn-signal
 go 1.19
 
 require (
-	github.com/aws/aws-sdk-go v1.55.6
+	github.com/aws/aws-sdk-go v1.55.7
 	github.com/mattn/go-isatty v0.0.20
 	github.com/sirupsen/logrus v1.9.3
 )
