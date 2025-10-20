@@ -12,6 +12,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -24,12 +25,14 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/cloudformation"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
+	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
+	cloudformationtypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/smithy-go"
 	"github.com/mattn/go-isatty"
 )
 
@@ -62,62 +65,42 @@ func main() {
 		os.Exit(0)
 	}
 
-	// AWS Session
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		Config:            *aws.NewConfig().WithCredentialsChainVerboseErrors(true),
-		SharedConfigState: session.SharedConfigDisable,
-	}))
+	imdsClient := imds.New(imds.Options{})
 
-	metadata := ec2metadata.New(sess)
+	ctx := context.Background()
 
-	awsCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	awsCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	if !metadata.AvailableWithContext(awsCtx) {
-		log.Fatal("EC2 Metadata is not available... Are we running on an EC2 instance?")
-	}
-
-	identity, err := metadata.GetInstanceIdentityDocument()
+	idDoc, err := imdsClient.GetInstanceIdentityDocument(awsCtx, &imds.GetInstanceIdentityDocumentInput{})
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("failed to get instance identity document: %v", err)
 	}
-	instanceID := identity.InstanceID
-	sess.Config = sess.Config.WithRegion(identity.Region)
+	instanceID := idDoc.InstanceID
 
-	ec2client := ec2.New(sess)
+	cfg := aws.Config{
+		Region: idDoc.Region,
+		// We should only ever be using this on EC2 Instances with an Instance Role...
+		Credentials: ec2rolecreds.New(),
+	}
 
-	input := &ec2.DescribeTagsInput{
-		Filters: []*ec2.Filter{
+	var tags []ec2types.TagDescription
+	ec2Client := ec2.NewFromConfig(cfg)
+	paginator := ec2.NewDescribeTagsPaginator(ec2Client, &ec2.DescribeTagsInput{
+		Filters: []ec2types.Filter{
 			{
-				Name: aws.String("resource-id"),
-				Values: []*string{
-					aws.String(instanceID),
-				},
+				Name:   aws.String("resource-id"),
+				Values: []string{instanceID},
 			},
 		},
-	}
+	})
 
-	resp, err := ec2client.DescribeTags(input)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	tags := resp.Tags
-
-	// Handle EC2 API Pagination
-	for {
-		if resp.NextToken == nil {
-			break
-		}
-
-		input.NextToken = resp.NextToken
-
-		resp, err := ec2client.DescribeTags(input)
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("failed to describe EC2 tags: %v", err)
 		}
-
-		tags = append(tags, resp.Tags...)
+		tags = append(tags, page.Tags...)
 	}
 
 	var LogicalID, StackName *string
@@ -135,16 +118,16 @@ func main() {
 		log.Fatal("Required tags were not present on EC2 Instance!")
 	}
 
-	cfclient := cloudformation.New(sess)
+	cfclient := cloudformation.NewFromConfig(cfg)
 
 	signal := &cloudformation.SignalResourceInput{
 		LogicalResourceId: LogicalID,
 		StackName:         StackName,
-		Status: func() *string {
+		Status: func() cloudformationtypes.ResourceSignalStatus {
 			if signalFailure {
-				return aws.String("FAILURE")
+				return cloudformationtypes.ResourceSignalStatusFailure
 			}
-			return aws.String("SUCCESS")
+			return cloudformationtypes.ResourceSignalStatusSuccess
 		}(),
 		UniqueId: aws.String(instanceID),
 	}
@@ -154,22 +137,25 @@ func main() {
 		waitUntilHealthy()
 	}
 
-	cfr, err := cfclient.SignalResource(signal)
+	cfr, err := cfclient.SignalResource(ctx, signal)
 	// Error Handling
 	// We don't want to have a non-zero exit code cause cloud-init unit failure during autoscaling operations
 	if err != nil {
 		func() {
-			if awsErr, ok := err.(awserr.Error); ok {
-				if awsErr.Code() == "ValidationError" {
-					// is in CREATE_COMPLETE state and cannot be signaled
-					// Potential status codes: CREATE_COMPLETE, UPDATE_COMPLETE, UPDATE_ROLLBACK_COMPLETE, etc.
-					// https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-describing-stacks.html
-					if strings.HasSuffix(awsErr.Message(), "state and cannot be signaled") {
-						log.Warn(awsErr)
-						return
-					}
+			var invalidStatus *cloudformationtypes.InvalidChangeSetStatusException
+			if errors.As(err, &invalidStatus) {
+				log.Warn(invalidStatus.Error())
+				return
+			}
+
+			var apiErr smithy.APIError
+			if errors.As(err, &apiErr) {
+				if apiErr.ErrorCode() == "ValidationError" && strings.HasSuffix(apiErr.ErrorMessage(), "state and cannot be signaled") {
+					log.Warn(apiErr.ErrorMessage())
+					return
 				}
 			}
+
 			log.Fatal(err)
 		}()
 	}
