@@ -1,4 +1,4 @@
-# github.com/aws/aws-sdk-go-v2 v1.39.3
+# github.com/aws/aws-sdk-go-v2 v1.39.5
 ## explicit; go 1.23
 github.com/aws/aws-sdk-go-v2/aws
 github.com/aws/aws-sdk-go-v2/aws/defaults
@@ -25,7 +25,7 @@ github.com/aws/aws-sdk-go-v2/internal/timeconv
 # github.com/aws/aws-sdk-go-v2/credentials v1.18.17
 ## explicit; go 1.23
 github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds
-# github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.10
+# github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.12
 ## explicit; go 1.23
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds/internal/config
