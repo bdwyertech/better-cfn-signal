@@ -11,73 +11,51 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Modifies the specified managed prefix list.
-//
-// Adding or removing entries in a prefix list creates a new version of the prefix
-// list. Changing the name of the prefix list does not affect the version.
-//
-// If you specify a current version number that does not match the true current
-// version number, the request fails.
-func (c *Client) ModifyManagedPrefixList(ctx context.Context, params *ModifyManagedPrefixListInput, optFns ...func(*Options)) (*ModifyManagedPrefixListOutput, error) {
+// Modifies an IPAM prefix list resolver. You can update the description and CIDR
+// selection rules. Changes to rules will trigger re-evaluation and potential
+// updates to associated prefix lists.
+func (c *Client) ModifyIpamPrefixListResolver(ctx context.Context, params *ModifyIpamPrefixListResolverInput, optFns ...func(*Options)) (*ModifyIpamPrefixListResolverOutput, error) {
 	if params == nil {
-		params = &ModifyManagedPrefixListInput{}
+		params = &ModifyIpamPrefixListResolverInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyManagedPrefixList", params, optFns, c.addOperationModifyManagedPrefixListMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyIpamPrefixListResolver", params, optFns, c.addOperationModifyIpamPrefixListResolverMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*ModifyManagedPrefixListOutput)
+	out := result.(*ModifyIpamPrefixListResolverOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type ModifyManagedPrefixListInput struct {
+type ModifyIpamPrefixListResolverInput struct {
 
-	// The ID of the prefix list.
+	// The ID of the IPAM prefix list resolver to modify.
 	//
 	// This member is required.
-	PrefixListId *string
+	IpamPrefixListResolverId *string
 
-	// One or more entries to add to the prefix list.
-	AddEntries []types.AddPrefixListEntry
+	// A new description for the IPAM prefix list resolver.
+	Description *string
 
-	// The current version of the prefix list.
-	CurrentVersion *int64
-
-	// Checks whether you have the required permissions for the action, without
-	// actually making the request, and provides an error response. If you have the
+	// A check for whether you have the required permissions for the action without
+	// actually making the request and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation . Otherwise, it is
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// Indicates whether synchronization with an IPAM prefix list resolver should be
-	// enabled for this managed prefix list. When enabled, the prefix list CIDRs are
-	// automatically updated based on the associated resolver's CIDR selection rules.
-	IpamPrefixListResolverSyncEnabled *bool
-
-	// The maximum number of entries for the prefix list. You cannot modify the
-	// entries of a prefix list and modify the size of a prefix list at the same time.
-	//
-	// If any of the resources that reference the prefix list cannot support the new
-	// maximum size, the modify operation fails. Check the state message for the IDs of
-	// the first ten resources that do not support the new maximum size.
-	MaxEntries *int32
-
-	// A name for the prefix list.
-	PrefixListName *string
-
-	// One or more entries to remove from the prefix list.
-	RemoveEntries []types.RemovePrefixListEntry
+	// The updated CIDR selection rules for the resolver. These rules replace the
+	// existing rules entirely.
+	Rules []types.IpamPrefixListResolverRuleRequest
 
 	noSmithyDocumentSerde
 }
 
-type ModifyManagedPrefixListOutput struct {
+type ModifyIpamPrefixListResolverOutput struct {
 
-	// Information about the prefix list.
-	PrefixList *types.ManagedPrefixList
+	// Information about the modified IPAM prefix list resolver.
+	IpamPrefixListResolver *types.IpamPrefixListResolver
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -85,19 +63,19 @@ type ModifyManagedPrefixListOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationModifyManagedPrefixListMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyIpamPrefixListResolverMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyManagedPrefixList{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyIpamPrefixListResolver{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpModifyManagedPrefixList{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpModifyIpamPrefixListResolver{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "ModifyManagedPrefixList"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "ModifyIpamPrefixListResolver"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -152,10 +130,10 @@ func (c *Client) addOperationModifyManagedPrefixListMiddlewares(stack *middlewar
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
-	if err = addOpModifyManagedPrefixListValidationMiddleware(stack); err != nil {
+	if err = addOpModifyIpamPrefixListResolverValidationMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyManagedPrefixList(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyIpamPrefixListResolver(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -218,10 +196,10 @@ func (c *Client) addOperationModifyManagedPrefixListMiddlewares(stack *middlewar
 	return nil
 }
 
-func newServiceMetadataMiddleware_opModifyManagedPrefixList(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opModifyIpamPrefixListResolver(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "ModifyManagedPrefixList",
+		OperationName: "ModifyIpamPrefixListResolver",
 	}
 }
