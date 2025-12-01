@@ -39,10 +39,8 @@ type ListStackRefactorsInput struct {
 	// set of results.
 	MaxResults *int32
 
-	// If the request doesn't return all the remaining results, NextToken is set to a
-	// token. To retrieve the next set of results, call this action again and assign
-	// that token to the request object's NextToken parameter. If the request returns
-	// all results, NextToken is set to null .
+	// The token for the next set of items to return. (You received this token from a
+	// previous call.)
 	NextToken *string
 
 	noSmithyDocumentSerde
@@ -170,40 +168,7 @@ func (c *Client) addOperationListStackRefactorsMiddlewares(stack *middleware.Sta
 	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addInterceptExecution(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptTransmit(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
