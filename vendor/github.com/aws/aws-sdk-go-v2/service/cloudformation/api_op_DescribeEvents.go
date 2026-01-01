@@ -11,59 +11,75 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Returns all stack related events for a specified stack in reverse chronological
-// order. For more information about a stack's event history, see [Understand CloudFormation stack creation events]in the
-// CloudFormation User Guide.
+// Returns CloudFormation events based on flexible query criteria. Groups events
+// by operation ID, enabling you to focus on individual stack operations during
+// deployment.
 //
-// You can list events for stacks that have failed to create or have been deleted
-// by specifying the unique stack identifier (stack ID).
+// An operation is any action performed on a stack, including stack lifecycle
+// actions (Create, Update, Delete, Rollback), change set creation, nested stack
+// creation, and automatic rollbacks triggered by failures. Each operation has a
+// unique identifier (Operation ID) and represents a discrete change attempt on the
+// stack.
 //
-// [Understand CloudFormation stack creation events]: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stack-resource-configuration-complete.html
-func (c *Client) DescribeStackEvents(ctx context.Context, params *DescribeStackEventsInput, optFns ...func(*Options)) (*DescribeStackEventsOutput, error) {
+// Returns different types of events including:
+//
+//   - Progress events - Status updates during stack operation execution.
+//
+//   - Validation errors - Failures from CloudFormation Early Validations.
+//
+//   - Provisioning errors - Resource creation and update failures.
+//
+//   - Hook invocation errors - Failures from CloudFormation Hook during stack
+//     operations.
+//
+// One of ChangeSetName , OperationId or StackName must be specified as input.
+func (c *Client) DescribeEvents(ctx context.Context, params *DescribeEventsInput, optFns ...func(*Options)) (*DescribeEventsOutput, error) {
 	if params == nil {
-		params = &DescribeStackEventsInput{}
+		params = &DescribeEventsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeStackEvents", params, optFns, c.addOperationDescribeStackEventsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeEvents", params, optFns, c.addOperationDescribeEventsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*DescribeStackEventsOutput)
+	out := result.(*DescribeEventsOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-// The input for DescribeStackEvents action.
-type DescribeStackEventsInput struct {
+type DescribeEventsInput struct {
 
-	// The name or the unique stack ID that's associated with the stack, which aren't
-	// always interchangeable:
-	//
-	//   - Running stacks: You can specify either the stack's name or its unique stack
-	//   ID.
-	//
-	//   - Deleted stacks: You must specify the unique stack ID.
-	//
-	// This member is required.
-	StackName *string
+	// The name or Amazon Resource Name (ARN) of the change set for which you want to
+	// retrieve events.
+	ChangeSetName *string
+
+	// Filters to apply when retrieving events.
+	Filters *types.EventFilter
 
 	// The token for the next set of items to return. (You received this token from a
 	// previous call.)
 	NextToken *string
 
+	// The unique identifier of the operation for which you want to retrieve events.
+	OperationId *string
+
+	// The name or unique stack ID for which you want to retrieve events.
+	StackName *string
+
 	noSmithyDocumentSerde
 }
 
-// The output for a DescribeStackEvents action.
-type DescribeStackEventsOutput struct {
+type DescribeEventsOutput struct {
 
-	// If the output exceeds 1 MB in size, a string that identifies the next page of
-	// events. If no additional page exists, this value is null.
+	// If the request doesn't return all the remaining results, NextToken is set to a
+	// token. To retrieve the next set of results, call DescribeEvents again and
+	// assign that token to the request object's NextToken parameter. If the request
+	// returns all results, NextToken is set to null .
 	NextToken *string
 
-	// A list of StackEvents structures.
-	StackEvents []types.StackEvent
+	// A list of operation events that match the specified criteria.
+	OperationEvents []types.OperationEvent
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -71,19 +87,19 @@ type DescribeStackEventsOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationDescribeStackEventsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeEventsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsAwsquery_serializeOpDescribeStackEvents{}, middleware.After)
+	err = stack.Serialize.Add(&awsAwsquery_serializeOpDescribeEvents{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsAwsquery_deserializeOpDescribeStackEvents{}, middleware.After)
+	err = stack.Deserialize.Add(&awsAwsquery_deserializeOpDescribeEvents{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeStackEvents"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeEvents"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -138,10 +154,7 @@ func (c *Client) addOperationDescribeStackEventsMiddlewares(stack *middleware.St
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
-	if err = addOpDescribeStackEventsValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeStackEvents(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeEvents(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -171,36 +184,35 @@ func (c *Client) addOperationDescribeStackEventsMiddlewares(stack *middleware.St
 	return nil
 }
 
-// DescribeStackEventsPaginatorOptions is the paginator options for
-// DescribeStackEvents
-type DescribeStackEventsPaginatorOptions struct {
+// DescribeEventsPaginatorOptions is the paginator options for DescribeEvents
+type DescribeEventsPaginatorOptions struct {
 	// Set to true if pagination should stop if the service returns a pagination token
 	// that matches the most recent token provided to the service.
 	StopOnDuplicateToken bool
 }
 
-// DescribeStackEventsPaginator is a paginator for DescribeStackEvents
-type DescribeStackEventsPaginator struct {
-	options   DescribeStackEventsPaginatorOptions
-	client    DescribeStackEventsAPIClient
-	params    *DescribeStackEventsInput
+// DescribeEventsPaginator is a paginator for DescribeEvents
+type DescribeEventsPaginator struct {
+	options   DescribeEventsPaginatorOptions
+	client    DescribeEventsAPIClient
+	params    *DescribeEventsInput
 	nextToken *string
 	firstPage bool
 }
 
-// NewDescribeStackEventsPaginator returns a new DescribeStackEventsPaginator
-func NewDescribeStackEventsPaginator(client DescribeStackEventsAPIClient, params *DescribeStackEventsInput, optFns ...func(*DescribeStackEventsPaginatorOptions)) *DescribeStackEventsPaginator {
+// NewDescribeEventsPaginator returns a new DescribeEventsPaginator
+func NewDescribeEventsPaginator(client DescribeEventsAPIClient, params *DescribeEventsInput, optFns ...func(*DescribeEventsPaginatorOptions)) *DescribeEventsPaginator {
 	if params == nil {
-		params = &DescribeStackEventsInput{}
+		params = &DescribeEventsInput{}
 	}
 
-	options := DescribeStackEventsPaginatorOptions{}
+	options := DescribeEventsPaginatorOptions{}
 
 	for _, fn := range optFns {
 		fn(&options)
 	}
 
-	return &DescribeStackEventsPaginator{
+	return &DescribeEventsPaginator{
 		options:   options,
 		client:    client,
 		params:    params,
@@ -210,12 +222,12 @@ func NewDescribeStackEventsPaginator(client DescribeStackEventsAPIClient, params
 }
 
 // HasMorePages returns a boolean indicating whether more pages are available
-func (p *DescribeStackEventsPaginator) HasMorePages() bool {
+func (p *DescribeEventsPaginator) HasMorePages() bool {
 	return p.firstPage || (p.nextToken != nil && len(*p.nextToken) != 0)
 }
 
-// NextPage retrieves the next DescribeStackEvents page.
-func (p *DescribeStackEventsPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeStackEventsOutput, error) {
+// NextPage retrieves the next DescribeEvents page.
+func (p *DescribeEventsPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeEventsOutput, error) {
 	if !p.HasMorePages() {
 		return nil, fmt.Errorf("no more pages available")
 	}
@@ -226,7 +238,7 @@ func (p *DescribeStackEventsPaginator) NextPage(ctx context.Context, optFns ...f
 	optFns = append([]func(*Options){
 		addIsPaginatorUserAgent,
 	}, optFns...)
-	result, err := p.client.DescribeStackEvents(ctx, &params, optFns...)
+	result, err := p.client.DescribeEvents(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
 	}
@@ -245,18 +257,18 @@ func (p *DescribeStackEventsPaginator) NextPage(ctx context.Context, optFns ...f
 	return result, nil
 }
 
-// DescribeStackEventsAPIClient is a client that implements the
-// DescribeStackEvents operation.
-type DescribeStackEventsAPIClient interface {
-	DescribeStackEvents(context.Context, *DescribeStackEventsInput, ...func(*Options)) (*DescribeStackEventsOutput, error)
+// DescribeEventsAPIClient is a client that implements the DescribeEvents
+// operation.
+type DescribeEventsAPIClient interface {
+	DescribeEvents(context.Context, *DescribeEventsInput, ...func(*Options)) (*DescribeEventsOutput, error)
 }
 
-var _ DescribeStackEventsAPIClient = (*Client)(nil)
+var _ DescribeEventsAPIClient = (*Client)(nil)
 
-func newServiceMetadataMiddleware_opDescribeStackEvents(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opDescribeEvents(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "DescribeStackEvents",
+		OperationName: "DescribeEvents",
 	}
 }

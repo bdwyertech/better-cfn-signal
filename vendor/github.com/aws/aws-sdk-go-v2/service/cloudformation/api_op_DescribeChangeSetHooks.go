@@ -11,7 +11,7 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Returns hook-related information for the change set and a list of changes that
+// Returns Hook-related information for the change set and a list of changes that
 // CloudFormation makes when you run the change set.
 func (c *Client) DescribeChangeSetHooks(ctx context.Context, params *DescribeChangeSetHooksInput, optFns ...func(*Options)) (*DescribeChangeSetHooksOutput, error) {
 	if params == nil {
@@ -39,8 +39,8 @@ type DescribeChangeSetHooksInput struct {
 	// If specified, lists only the Hooks related to the specified LogicalResourceId .
 	LogicalResourceId *string
 
-	// A string, provided by the DescribeChangeSetHooks response output, that
-	// identifies the next page of information that you want to retrieve.
+	// The token for the next set of items to return. (You received this token from a
+	// previous call.)
 	NextToken *string
 
 	// If you specified the name of a change set, specify the stack name or stack ID
@@ -70,7 +70,7 @@ type DescribeChangeSetHooksOutput struct {
 	// The stack name.
 	StackName *string
 
-	// Provides the status of the change set hook.
+	// Provides the status of the change set Hook.
 	Status types.ChangeSetHooksStatus
 
 	// Metadata pertaining to the operation's result.
@@ -173,40 +173,7 @@ func (c *Client) addOperationDescribeChangeSetHooksMiddlewares(stack *middleware
 	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addInterceptExecution(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptTransmit(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
